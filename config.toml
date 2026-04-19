@@ -1,0 +1,44 @@
+# podcasts-ai configuration — active providers and defaults.
+# Env-only secrets live in .env (gitignored). This file is committed.
+
+[tts]
+# Options: yandex (see podcasts/tts/registry.py for how to add more)
+provider = "yandex"
+# Voice is provider-specific. For Yandex v3: marina, alena, zahar, ermil, jane, omazh, madirus.
+voice = "marina"
+# Speech rate (1.0 = normal).
+speed = 1.0
+# Output audio format returned to user ("mp3" or "ogg").
+output_format = "mp3"
+
+[stt]
+provider = "yandex"
+# Yandex STT v3 model. "general" is the default multilingual model.
+model = "general"
+
+[stress]
+# Options: ruaccent | noop
+provider = "ruaccent"
+# RUAccent model size: "turbo" (fast, ~300MB) | "big_poetry" (accurate, ~1GB)
+ruaccent_model = "turbo"
+
+[style]
+# Name of a file in styles/. Drop --style flag falls back to this.
+default = "documentary"
+
+[podcast]
+# Approximate chars of Russian text per minute of audio at speed=1.0.
+chars_per_minute = 900
+# Default episode length in minutes if user does not specify.
+default_minutes = 12
+
+[security]
+# Max generations per rolling 24h window (per user).
+rate_limit_per_day = 15
+# Hard cap on characters sent to TTS in a single build (~55 min at 900 cpm).
+max_script_chars = 50000
+
+[vault]
+# Path to the Obsidian vault. Relative paths resolve to the project root.
+# You may symlink this to ~/Documents/Obsidian/Podcasts for native Obsidian usage.
+path = "vault"
