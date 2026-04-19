@@ -20,6 +20,9 @@ dependencies = [
     "beautifulsoup4>=4.12",
     "lxml>=5.3",
     "python-slugify>=8.0",
+    "f5-tts>=1.1.17",
+    "soundfile>=0.13.1",
+    "httpx>=0.28.1",
 ]
 
 [project.optional-dependencies]

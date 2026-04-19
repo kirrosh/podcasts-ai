@@ -2,14 +2,24 @@
 # Env-only secrets live in .env (gitignored). This file is committed.
 
 [tts]
-# Options: yandex (see podcasts/tts/registry.py for how to add more)
+# Options: yandex | f5_russian | salutespeech.
+# - yandex: fast cloud gRPC, `+vowel` marks, marina-family voices.
+# - f5_russian: local MPS neural synth with voice cloning via reference.wav.
+# - salutespeech: Sber cloud REST, SSML with stress marks; voices:
+#   Nec_24000 (Наталья, ж), May_24000 (Марфа, ж), Ost_24000 (Александра, ж),
+#   Bys_24000 (Борис, м), Tur_24000 (Тарас, м), Pon_24000 (Сергей, м).
 provider = "yandex"
 # Voice is provider-specific. For Yandex v3: marina, alena, zahar, ermil, jane, omazh, madirus.
+# Ignored by f5_russian (timbre is set via f5_reference_audio).
+# For salutespeech: pass one of the voice IDs listed above (e.g. "Ost_24000").
 voice = "marina"
 # Speech rate (1.0 = normal).
 speed = 1.0
 # Output audio format returned to user ("mp3" or "ogg").
 output_format = "mp3"
+# F5-TTS reference clip for voice cloning (mono 24 kHz WAV, ~10 sec) + its transcript.
+f5_reference_audio = "scripts/f5_ref/reference.wav"
+f5_reference_text = "scripts/f5_ref/reference.txt"
 
 [stt]
 provider = "yandex"
@@ -33,8 +43,8 @@ chars_per_minute = 900
 default_minutes = 12
 
 [security]
-# Max generations per rolling 24h window (per user).
-rate_limit_per_day = 15
+# Max generations per rolling 24h window (per user). Bumped from 15 during the TTS spike.
+rate_limit_per_day = 50
 # Hard cap on characters sent to TTS in a single build (~55 min at 900 cpm).
 max_script_chars = 50000
 

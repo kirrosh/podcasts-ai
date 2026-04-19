@@ -34,22 +34,24 @@ class RuAccentStress:
         """Preserve existing `+` marks; annotate the rest via RUAccent."""
         # RUAccent works on text without pre-existing marks, so we temporarily strip
         # our `+` markers, run RUAccent, then restore ours on top (our marks win).
-        existing = self._capture_existing(text)
+        #
+        # Occurrences are position-indexed so homographs with different stress in
+        # the same document (e.g. `Д+ухи прошлого` and later `дух+и французской`)
+        # each restore to their own original form.
+        existing = self._capture_existing_ordered(text)
         stripped = text.replace("+", "")
         accented = self._accent.process_all(stripped)
         yandex_format = self._combining_to_plus(accented)
-        # Re-apply user-provided marks: split on whitespace, for each word that had
-        # an explicit `+` in the original, restore that version.
-        return self._restore_explicit(yandex_format, existing)
+        return self._restore_ordered(yandex_format, existing)
 
     @staticmethod
-    def _capture_existing(text: str) -> dict[str, str]:
-        """Return {stripped_word_lower: original_word_with_plus}."""
-        result: dict[str, str] = {}
+    def _capture_existing_ordered(text: str) -> dict[str, list[str]]:
+        """Return {stripped_lower: [original1, original2, ...]} preserving order."""
+        result: dict[str, list[str]] = {}
         for match in re.finditer(r"\w+\+\w*", text, flags=re.UNICODE):
             original = match.group(0)
             stripped = original.replace("+", "").lower()
-            result[stripped] = original
+            result.setdefault(stripped, []).append(original)
         return result
 
     @staticmethod
@@ -70,14 +72,23 @@ class RuAccentStress:
         return "".join(out)
 
     @staticmethod
-    def _restore_explicit(text: str, existing: dict[str, str]) -> str:
-        """Where the user explicitly placed `+`, use their version."""
+    def _restore_ordered(text: str, existing: dict[str, list[str]]) -> str:
+        """Replace each word occurrence with its user-provided original, in order."""
         if not existing:
             return text
+        cursors: dict[str, int] = {k: 0 for k in existing}
 
         def repl(match: re.Match[str]) -> str:
             word = match.group(0)
             bare = word.replace("+", "").lower()
-            return existing.get(bare, word)
+            variants = existing.get(bare)
+            if not variants:
+                return word
+            idx = cursors[bare]
+            if idx >= len(variants):
+                # More occurrences than user marked — leave RUAccent's version alone.
+                return word
+            cursors[bare] = idx + 1
+            return variants[idx]
 
         return re.sub(r"\w+\+?\w*", repl, text, flags=re.UNICODE)

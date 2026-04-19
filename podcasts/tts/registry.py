@@ -22,8 +22,22 @@ def _yandex_factory() -> TTSProvider:
     return YandexTTS()
 
 
+def _f5_russian_factory() -> TTSProvider:
+    from podcasts.tts.f5_russian import F5RussianTTS
+
+    return F5RussianTTS()
+
+
+def _salutespeech_factory() -> TTSProvider:
+    from podcasts.tts.salutespeech import SaluteSpeechTTS
+
+    return SaluteSpeechTTS()
+
+
 PROVIDERS: dict[str, Callable[[], TTSProvider]] = {
     "yandex": _yandex_factory,
+    "f5_russian": _f5_russian_factory,
+    "salutespeech": _salutespeech_factory,
 }
 
 

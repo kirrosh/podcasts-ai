@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import logging
-import re
 from typing import TYPE_CHECKING
 
 from podcasts.config import ensure_secret, load_secrets
+from podcasts.tts._stress_utils import scrub_stray_plus
 
 log = logging.getLogger(__name__)
 
@@ -18,12 +18,6 @@ if TYPE_CHECKING:
 # zahar = male, ermil = male calm, jane = female, omazh = female, madirus = male,
 # filipp = male (often cited as highest-quality).
 _SUPPORTED_VOICES = ["marina", "alena", "zahar", "ermil", "jane", "omazh", "madirus", "filipp"]
-
-# Russian vowels (lower + upper). Yandex treats `+` as a stress marker ONLY when
-# the next character is a vowel. If `+` sits before a consonant or space, the
-# synthesizer pronounces it literally as "плюс". We scrub such stray marks.
-_VOWELS = set("аеёиоуыэюяАЕЁИОУЫЭЮЯ")
-_BAD_PLUS = re.compile(r"\+([^" + "".join(_VOWELS) + r"])")
 
 
 class YandexTTS:
@@ -43,7 +37,7 @@ class YandexTTS:
         if voice not in _SUPPORTED_VOICES:
             log.warning("Voice %r not in known list %s; trying anyway", voice, _SUPPORTED_VOICES)
 
-        text = self._scrub_stray_plus(text)
+        text = scrub_stray_plus(text)
 
         request = tts_pb2.UtteranceSynthesisRequest(
             text=text,
@@ -79,15 +73,3 @@ class YandexTTS:
 
     def output_mime(self) -> str:
         return "audio/ogg"
-
-    @staticmethod
-    def _scrub_stray_plus(text: str) -> str:
-        """Remove `+` that does not sit before a Russian vowel (would be read as 'плюс')."""
-        before = text.count("+")
-        cleaned = _BAD_PLUS.sub(r"\1", text)
-        # Also strip trailing `+` at end of word/string
-        cleaned = re.sub(r"\+(?=\s|$|[^\wа-яА-ЯёЁ])", "", cleaned)
-        removed = before - cleaned.count("+")
-        if removed:
-            log.warning("Scrubbed %d stray '+' marks not before a vowel", removed)
-        return cleaned

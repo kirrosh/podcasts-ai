@@ -18,6 +18,9 @@ class TTSConfig(BaseModel):
     voice: str = "marina"
     speed: float = 1.0
     output_format: Literal["mp3", "ogg"] = "mp3"
+    # F5-TTS provider: paths relative to project root (ignored by other providers).
+    f5_reference_audio: str = "scripts/f5_ref/reference.wav"
+    f5_reference_text: str = "scripts/f5_ref/reference.txt"
 
 
 class STTConfig(BaseModel):
@@ -68,8 +71,10 @@ class Secrets(BaseSettings):
 
     yc_api_key: str = ""
     yc_folder_id: str = ""
-    elevenlabs_api_key: str = ""
     telegram_bot_token: str = ""
+    # SaluteSpeech (Sber) TTS: base64 Authorization key from ЛК + scope.
+    sber_auth_key: str = ""
+    sber_scope: str = "SALUTE_SPEECH_PERS"
 
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",
