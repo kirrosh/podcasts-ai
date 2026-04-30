@@ -40,9 +40,45 @@ class RuAccentStress:
         # each restore to their own original form.
         existing = self._capture_existing_ordered(text)
         stripped = text.replace("+", "")
-        accented = self._accent.process_all(stripped)
+        accented = self._safe_process(stripped)
         yandex_format = self._combining_to_plus(accented)
         return self._restore_ordered(yandex_format, existing)
+
+    def _safe_process(self, text: str) -> str:
+        """Run RUAccent; if the bundled ONNX model blows up on an OOV word, fall
+        back to per-paragraph then per-word, leaving offenders unaccented.
+
+        Background: RUAccent 1.5.x ships an ONNX accent model whose exported
+        inputs (`input_ids`, `attention_mask`) don't match what the library
+        feeds it (`token_type_ids` also required). For words that land in the
+        neural fallback path (rare names, hyphenated surnames, unusual
+        prefixes) the whole `process_all` call raises and the pipeline dies.
+        """
+        try:
+            return self._accent.process_all(text)
+        except Exception as exc:  # noqa: BLE001 — upstream raises bare ValueError
+            log.warning("RUAccent full-text failed (%s); falling back per paragraph", exc)
+
+        out: list[str] = []
+        for para in text.split("\n"):
+            if not para.strip():
+                out.append(para)
+                continue
+            try:
+                out.append(self._accent.process_all(para))
+            except Exception:
+                out.append(self._safe_per_word(para))
+        return "\n".join(out)
+
+    def _safe_per_word(self, text: str) -> str:
+        def repl(match: re.Match[str]) -> str:
+            token = match.group(0)
+            try:
+                return self._accent.process_all(token)
+            except Exception:
+                return token
+
+        return re.sub(r"\w+", repl, text, flags=re.UNICODE)
 
     @staticmethod
     def _capture_existing_ordered(text: str) -> dict[str, list[str]]:

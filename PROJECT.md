@@ -1,6 +1,6 @@
 # PROJECT.md — живое состояние системы podcasts-ai
 
-**Последнее обновление:** 2026-04-19 (вечер, spike F5-TTS)
+**Последнее обновление:** 2026-04-20 (SaluteSpeech как default TTS)
 
 ## Что это и зачем
 
@@ -10,10 +10,10 @@
 
 | Параметр | Значение | Файл |
 |---|---|---|
-| TTS провайдер (активный) | Yandex SpeechKit v3 | `podcasts/tts/yandex.py` |
-| TTS провайдер (экспериментальный) | F5-TTS_RUSSIAN (Misha24-10 v2, MPS) | `podcasts/tts/f5_russian.py` |
-| TTS провайдер (живой, ключ в .env) | SaluteSpeech (Sber REST + SSML) | `podcasts/tts/salutespeech.py` |
-| Голос | `marina` (neural v3) | `config.toml` → `tts.voice` |
+| TTS провайдер (активный) | SaluteSpeech (Sber REST + SSML) | `podcasts/tts/salutespeech.py` |
+| TTS провайдер (запасной, cloud gRPC) | Yandex SpeechKit v3 | `podcasts/tts/yandex.py` |
+| TTS провайдер (экспериментальный, локальный) | F5-TTS_RUSSIAN (Misha24-10 v2, MPS) | `podcasts/tts/f5_russian.py` |
+| Голос | `Ost_24000` (Александра, живая интонация) | `config.toml` → `tts.voice` |
 | STT провайдер | Yandex SpeechKit v3 | `podcasts/stt/yandex.py` |
 | Stress-простановка | RUAccent (turbo, с PyTorch/MPS) | `podcasts/stress/ruaccent.py` |
 | Стиль по умолчанию | `documentary` | `styles/documentary.md` |
@@ -59,18 +59,33 @@ python3 -m uv sync        # один раз — установит зависи�
 
 # Демо-сборка (параграф с омографами)
 python3 -m uv run python -m podcasts.build scripts/test-paragraph.txt
-
-# Когда подключён Telegram-плагин и запарены:
-# /plugin marketplace add anthropics/claude-plugins-official
-# /plugin install telegram@claude-plugins-official
-# /telegram:configure <BOT_TOKEN>
-
-tmux new -s podcasts
-claude --channels plugin:telegram@claude-plugins-official
-# В Telegram: DM боту, получить код
-# В Claude: /telegram:access pair <код>
-#          /telegram:access policy allowlist
 ```
+
+### Долгая Telegram-сессия (через screen)
+
+Установка плагина (один раз, из любой Claude-сессии):
+
+```
+/plugin marketplace add anthropics/claude-plugins-official   # уже добавлен
+/plugin install telegram@claude-plugins-official
+/reload-plugins
+/telegram:configure <BOT_TOKEN>                               # или .env руками
+```
+
+Токен хранится в `~/.claude/channels/telegram/.env` (`TELEGRAM_BOT_TOKEN=...`, права 600). В репозитории также продублирован в `.env` для справки.
+
+Запуск долгой сессии:
+
+```bash
+scripts/start-telegram-session.sh     # screen -dmS podcasts claude --channels plugin:telegram@...
+screen -r podcasts                    # приткнуться
+# В Telegram: DM боту → получить 6-символьный код
+# В Claude:  /telegram:access pair <код>
+#            /telegram:access policy allowlist
+# Ctrl+A, D — отцепиться, сессия живёт в фоне
+```
+
+`screen -ls` — посмотреть живые сессии; `screen -S podcasts -X quit` — убить.
 
 ## Контракты модулей
 
@@ -123,13 +138,19 @@ class StressProvider(Protocol):
 - [ ] Рассмотреть SSML-обогащение для Сбера: обернуть абзацы в `<paint slope="4">`, добавлять `<break time="500ms"/>` между предложениями, расставлять `*` на ключевых существительных для эмфазы.
 - [ ] Снять монотонность голоса Yandex: `alena`/`filipp` или `Hints.role = "good"`.
 - [ ] Решить где физически хранить `vault/` — внутри репо или симлинком на `~/Documents/Obsidian/Podcasts`.
-- [ ] Демонизировать Claude-сессию через launchd (сейчас tmux).
+- [ ] Демонизировать Claude-сессию через launchd (сейчас screen через `scripts/start-telegram-session.sh`).
 - [ ] Добавить `mcpvault` MCP-сервер когда vault разрастётся — для BM25 поиска.
 - [ ] Отслеживать потраченные символы Yandex/Sber для бюджета (сейчас rate-limit только по числу запросов).
-- [ ] Настроить Telegram-плагин (`/telegram:configure`, `/telegram:access pair`, allowlist).
+- [ ] Установить Telegram-плагин и пройти pair → allowlist (токен уже в `~/.claude/channels/telegram/.env`, launch-скрипт готов).
 
 ## Changelog
 
+- **2026-04-20 (исследование вглубь в skill)**: В `podcast/SKILL.md` (step 4) добавлен блок «Когда уместно идти шире первоисточника» — явное разрешение привлекать критиков/развивателей/эмпирические проверки, плюс два жёстких правила: (1) анти-галлюцинация с обязательной проверкой через WebSearch/WebFetch для любых конкретных имён/дат/названий или обобщённой формулировкой вместо выдумки; (2) приоритет `vault/sources/` над общими знаниями при пересечении. Мотивация: эпизоды копятся в vault и цитируются следующими эпизодами — ложная фамилия застрянет в графе знаний надолго, это дороже, чем чуть более скромный текст.
+- **2026-04-20 (SaluteSpeech как default)**: Переключён основной TTS на SaluteSpeech, голос `Ost_24000` (Александра, живая интонация). Yandex остаётся в реестре запасным — переключается через `config.toml`. Мотивация: после spike 2026-04-19 Ost/Tur дали более ровную интонацию без склеек между 230-символьными чанками, плюс 4000 симв/запрос против 250 Yandex v3 драматически ускоряет сборку длинных эпизодов. Разметка `+гласная` автоматически конвертируется в апостроф-после-гласной в `_to_ssml()` — на уровне сценария и skill-чеклиста ничего менять не нужно.
+- **2026-04-20 (второй эпизод + retry Yandex gRPC)**: Собран детальный эпизод по первому тому «Капитала» (`audio/2026-04-20-kapital-tom-1.mp3`, 17:27, 8.4 MB, 97 чанков, 14177 символов). При первой попытке сборки два раза подряд падало gRPC (Connection reset by peer, No route to host) на середине — Yandex SpeechKit с длинными очередями 90+ чанков оказывается чувствителен к сетевой флаке. В `podcasts/tts/yandex.py` добавлен retry с экспоненциальным бэкоффом (до 4 попыток, база 1.5 сек, удвоение) для статусов UNAVAILABLE, DEADLINE_EXCEEDED, INTERNAL, RESOURCE_EXHAUSTED. После фикса сборка прошла с первого раза. В vault создано 12 новых концептов первого тома (Двойственный характер труда, Формы стоимости, Рабочая сила, Постоянный и переменный капитал, Абсолютная и относительная прибавочная стоимость, Рабочий день, Кооперация, Мануфактура, Машинная фабрика, Всеобщий закон накопления, Первоначальное накопление) и обновлены 7 существующих.
+- **2026-04-20 (follow-up контракт)**: Обновлён step 8 в `podcast/SKILL.md` — превью к mp3 теперь с пронумерованными направлениями (1️⃣/2️⃣/3️⃣) и инструкцией «ответь цифрой». Контракт: порядок в сообщении = порядок в `followups_offered` у episode-файла. В DM «1» бот читает `vault/episodes/` (самый свежий), берёт первый пункт followups и запускает полный skill-чеклист. Inline-кнопки Telegram не подключаем на MVP (потребовало бы патча `server.ts` в marketplace-плагине — хрупко при апдейтах).
+- **2026-04-20 (Telegram через screen)**: Написан `scripts/start-telegram-session.sh` — запуск `claude --channels plugin:telegram@claude-plugins-official` в detached screen-сессии `podcasts`. Токен BotFather записан в `~/.claude/channels/telegram/.env` (chmod 600) и продублирован в `.env` проекта. tmux не ставили — screen встроен в macOS и этого достаточно для MVP; launchd-демонизация оставлена в Open Questions.
+- **2026-04-19 (первый эпизод + RUAccent safety net)**: Собран первый реальный эпизод — обзор «Капитала» Маркса по всем трём томам (`audio/2026-04-19-kapital-overview.mp3`, 11:34, 5.3 MB, 66 чанков, 9374 символа). Во время сборки выяснился баг RUAccent 1.5.x: поставляемая ONNX-модель `accent_model` требует вход `token_type_ids`, но библиотека подаёт только `input_ids` + `attention_mask`. Любое OOV-слово (редкие имена, гибриды через дефис вроде «Бём-Баверка», специфические прилагательные — «неорикардианская», «операизм», а также неожиданно «самое») → бросает ValueError и кладёт весь `process_all`. Починено в `podcasts/stress/ruaccent.py` — `annotate` теперь идёт через `_safe_process`: сначала пробует текст целиком, при падении — по абзацам, при падении абзаца — по словам (проблемные остаются без ударения, RUAccent не падает). В vault создана заготовка (`books/kapital-marks.md`, 10 concept-страниц, эпизод с детальным «что НЕ затронуто» для дедупликации).
 - **2026-04-19 (фикс RUAccent restore)**: Баг — `_capture_existing` хранил по ключу `stripped_lower`, поэтому омографы с разной разметкой в одном тексте затирали друг друга (в test-paragraph «Д+ухи прошлого» и «дух+и французской» оба восстанавливались как «дух+и»). Заменено на `_capture_existing_ordered` + `_restore_ordered` с позиционными курсорами — каждое вхождение берёт свою форму в порядке документа. 5 новых тестов (33 passed).
 - **2026-04-19 (spike ElevenLabs)**: Проверен `eleven_v3` — на free-плане API отвечает 402 для всех library voices (собственные IVC-клоны требуют Creator+). Тариф Creator $22/мес (121k символов ≈ 230 мин) признан слишком дорогим для подкаст-потока. Провайдер и зависимость `elevenlabs` удалены — в таблице сравнения TTS (Yandex / Sber / F5 / ElevenLabs) победили Сбер + F5.
 - **2026-04-19 (spike SaluteSpeech)**: Добавлен провайдер `salutespeech` (Sber REST + SSML). Конвертор `+гласная → гласная'`, OAuth2 client credentials с кэшем токена, 6 русских голосов, лимит 4000 символов/запрос, 7 unit-тестов на SSML-конверсию. На M2 Pro целый тестовый абзац ген. за 2.5 сек (1 чанк) против 5 чанков у Yandex — более ровная интонация за счёт отсутствия склеек. Голоса Ost (Александра) и Tur (Тарас) — живая интонация. Free tier 200k символов/мес. Для dev: `verify=False` на обоих endpoint'ах (Минцифры CA не в macOS trust store) — TODO на прод.

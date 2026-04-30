@@ -8,11 +8,11 @@
 # - salutespeech: Sber cloud REST, SSML with stress marks; voices:
 #   Nec_24000 (Наталья, ж), May_24000 (Марфа, ж), Ost_24000 (Александра, ж),
 #   Bys_24000 (Борис, м), Tur_24000 (Тарас, м), Pon_24000 (Сергей, м).
-provider = "yandex"
+provider = "salutespeech"
 # Voice is provider-specific. For Yandex v3: marina, alena, zahar, ermil, jane, omazh, madirus.
 # Ignored by f5_russian (timbre is set via f5_reference_audio).
 # For salutespeech: pass one of the voice IDs listed above (e.g. "Ost_24000").
-voice = "marina"
+voice = "Ost_24000"
 # Speech rate (1.0 = normal).
 speed = 1.0
 # Output audio format returned to user ("mp3" or "ogg").
