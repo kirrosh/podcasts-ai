@@ -20,8 +20,6 @@ dependencies = [
     "beautifulsoup4>=4.12",
     "lxml>=5.3",
     "python-slugify>=8.0",
-    "f5-tts>=1.1.17",
-    "soundfile>=0.13.1",
     "httpx>=0.28.1",
 ]
 
@@ -31,6 +29,13 @@ dev = [
     "pytest-asyncio>=0.24",
     "ruff>=0.8",
     "mypy>=1.13",
+]
+# Local F5-TTS neural synth (MPS). Pulls ~2 GB of torch/transformers/vocos.
+# Install only if you want provider = "f5_russian" in config.toml:
+#   uv sync --extra f5
+f5 = [
+    "f5-tts>=1.1.17",
+    "soundfile>=0.13.1",
 ]
 
 [project.scripts]
